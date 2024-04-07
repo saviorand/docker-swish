@@ -228,8 +228,8 @@ if [ -d "./thea" ]; then
 fi
 
 # Clone the repository afresh
-git clone https://github.com/vangelisv/thea.git
-
+# git clone https://github.com/vangelisv/thea.git
+git clone https://github.com/conceptsinmotion/thea.git
 cd ./thea
 
 # Proceed with your setup
@@ -243,25 +243,34 @@ sed -i '/\$(INSTALL_DATA) \$(LIBPLRULES) \$(DESTDIR)\$(LIBDIR)\/rules/s/^/#/' Ma
 
 make
 make install
-cd ../
-create_thea_config() {
-  # Ensure the config directory exists
-  mkdir -p "$configdir"
-  
-  # Define the path to the new file
-  thea_config_file="$configdir/thea.pl"
+cd -
 
-  # Check if the file already exists, and if so, remove it to start fresh
+create_thea_config() {
+  # mkdir -p "$configdir"
+  thea_config_file="./thea.pl"
   if [ -f "$thea_config_file" ]; then
     rm "$thea_config_file"
   fi
 
-  # Add the contents to thea.pl
+  # Start by specifying the module declaration with exported predicates
   echo ":- [thea]." >> "$thea_config_file"
-  echo ":- use_module(library(thea2/owl2_io))." >> "$thea_config_file"
-  echo ":- use_module(library(thea2/owl2_model))." >> "$thea_config_file"
+  echo ":- module(thea, [load_axioms/2, save_axioms/2])." >> "$thea_config_file"
 
-  # Ensure the variables for user and group are set correctly before using
+  # Include the necessary modules from Thea
+  echo ":- use_module('./thea/owl2_io')." >> "$thea_config_file"
+  echo ":- use_module('./thea/owl2_model')." >> "$thea_config_file"
+
+  # Add the wrapper predicate definitions for load_axioms/2 and save_axioms/2
+  echo "" >> "$thea_config_file" # Add an empty line for readability
+  echo "% Wrapper for load_axioms/2" >> "$thea_config_file"
+  echo "load_axioms(File, Options) :-" >> "$thea_config_file"
+  echo "    owl2_io:load_axioms(File, Options)." >> "$thea_config_file"
+  echo "" >> "$thea_config_file" # Another empty line for readability
+  echo "% Wrapper for save_axioms/2" >> "$thea_config_file"
+  echo "save_axioms(File, Options) :-" >> "$thea_config_file"
+  echo "    owl2_io:save_axioms(File, Options)." >> "$thea_config_file"
+
+
   if [ -z "$uconfig" ]; then
     echo "Warning: uconfig variable is not set. Skipping chown."
   else
@@ -270,4 +279,5 @@ create_thea_config() {
   fi
 }
 create_thea_config
+
 ${SWISH_HOME}/daemon.pl --${scheme}=3050 ${ssl} --user=$udaemon $start
