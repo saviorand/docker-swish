@@ -127,7 +127,6 @@ config_auth()
   esac
 }
 
-
 # If there is a data directory, reuse it and set our user to be the
 # native user of this directory.
 
@@ -220,4 +219,55 @@ if [ -S /rserve/socket ]; then
   echo ":- set_setting_default(rserve:socket, '/rserve/socket')." >> $configdir/r_serve.pl
 fi
 
+cd ${configdir}
+
+# Check if the "./thea" directory exists
+if [ -d "./thea" ]; then
+    # If it exists, delete it
+    rm -rf ./thea
+fi
+
+# Clone the repository afresh
+git clone https://github.com/vangelisv/thea.git
+
+cd ./thea
+
+# Proceed with your setup
+./configure
+
+sed -i '/owl2_basic_reasoner.pl\\/d' Makefile
+sed -i '/owl2_reasoner.pl\\/d' Makefile
+sed -i '/owl2_tbox_reasoner.pl\\/d' Makefile
+sed -i '/LIBPLRULES=\\/,/[^\\]$/c\LIBPLRULES=' Makefile
+sed -i '/\$(INSTALL_DATA) \$(LIBPLRULES) \$(DESTDIR)\$(LIBDIR)\/rules/s/^/#/' Makefile
+
+make
+make install
+cd ../
+create_thea_config() {
+  # Ensure the config directory exists
+  mkdir -p "$configdir"
+  
+  # Define the path to the new file
+  thea_config_file="$configdir/thea.pl"
+
+  # Check if the file already exists, and if so, remove it to start fresh
+  if [ -f "$thea_config_file" ]; then
+    rm "$thea_config_file"
+  fi
+
+  # Add the contents to thea.pl
+  echo ":- [thea]." >> "$thea_config_file"
+  echo ":- use_module(library(thea2/owl2_io))." >> "$thea_config_file"
+  echo ":- use_module(library(thea2/owl2_model))." >> "$thea_config_file"
+
+  # Ensure the variables for user and group are set correctly before using
+  if [ -z "$uconfig" ]; then
+    echo "Warning: uconfig variable is not set. Skipping chown."
+  else
+    # Assuming uconfig variable holds both user and group with a colon separation
+    chown "$uconfig:$uconfig" "$thea_config_file"
+  fi
+}
+create_thea_config
 ${SWISH_HOME}/daemon.pl --${scheme}=3050 ${ssl} --user=$udaemon $start
